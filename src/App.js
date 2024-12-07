@@ -1,17 +1,40 @@
-// src/App.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Login from './Components/Login';
-import Register from './Components/Register';  // Asegúrate de que la ruta sea correcta
+import Register from './Components/Register';
 import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
 import FileUpload from './Components/FileUpload';
+import Profile from './Components/Profile';  // Asegúrate de crear el componente de perfil
 
 
 const App = () => {
+  const [userName, setUserName] = useState(null);
+
+  // Cargar el nombre del usuario desde localStorage
+  useEffect(() => {
+    const storedName = localStorage.getItem('user_name');
+    if (storedName) {
+      setUserName(storedName);  // Establecer el nombre de usuario en el estado
+    }
+    const handleStorageChange = () => {
+      const updatedName = localStorage.getItem('user_name');
+      setUserName(updatedName);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+
+
+  }, []);
+
   return (
     <Router>
-      <Navbar />
+      <Navbar userName={userName} /> {/* Pasa el userName a Navbar */}
+
       <div style={styles.mainContent}>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -19,8 +42,12 @@ const App = () => {
           <Route
             path="/"
             element={
+
+
               <div style={styles.home}>
-                <h2>Bienvenido a SageML</h2>
+
+                {/* Mostrar mensaje de bienvenida si el usuario está autenticado */}
+                {userName && <h2>¡Bienvenido, {userName}!</h2>}
                 <p>
                   SageML es una aplicación interactiva diseñada para ayudarte a explorar, comprender y aplicar Machine Learning a tus datos.
                   Con una interfaz educativa y práctica, aprenderás conceptos clave mientras trabajas en problemas del mundo real.
@@ -73,6 +100,7 @@ const App = () => {
             }
           />
           <Route path="/aplicacion" element={<FileUpload />} />
+          <Route path="/profile" element={<Profile userName={userName} />} /> {/* Ruta del perfil */}
         </Routes>
       </div>
       <Footer />
@@ -83,7 +111,7 @@ const App = () => {
 const styles = {
   mainContent: {
     padding: '20px',
-    minHeight: '80vh', // Asegura que el contenido principal empuje el footer hacia abajo
+    minHeight: '80vh',
   },
   home: {
     textAlign: 'center',

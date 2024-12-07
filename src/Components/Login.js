@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Asegúrate de tener el Link importado
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 
 const Login = () => {
@@ -8,14 +8,18 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [isFaceLogin, setIsFaceLogin] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [uploadedImage, setUploadedImage] = useState(null);
+  const [uploadedImage, setUploadedImage] = useState(null); // Para almacenar la imagen subida o capturada
   const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
 
-  // Iniciar la cámara para el login facial
   const startCamera = () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Tu navegador no soporta acceso a la cámara.');
+      return;
+    }
+
     setIsCameraActive(true);
     navigator.mediaDevices
       .getUserMedia({ video: true })
@@ -31,7 +35,6 @@ const Login = () => {
       });
   };
 
-  // Detener la cámara
   const stopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject;
@@ -41,7 +44,6 @@ const Login = () => {
     }
   };
 
-  // Capturar foto desde la cámara
   const capturePhoto = () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -51,52 +53,57 @@ const Login = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      console.log('Imagen capturada:', canvas.toDataURL('image/jpeg'));  // Verifica el contenido del canvas
-      stopCamera();
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            setError('No se ha capturado una imagen válida.');
+            return;
+          }
+          const file = new File([blob], 'captured_image.jpg', { type: 'image/jpeg' });
+          handleFileUpload(file);
+          stopCamera();
+        },
+        'image/jpeg',
+        0.95
+      );
+    } else {
+      setError('No se pudo capturar la imagen.');
     }
   };
 
-  // Subir imagen desde el dispositivo
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
+  const handleFileUpload = (file) => {
     if (file) {
       setUploadedImage(file);
+    } else {
+      setError('No se pudo cargar la imagen.');
     }
   };
 
-  // Login usando reconocimiento facial
   const handleFaceLogin = async () => {
     setIsLoading(true);
+    setError(null);
 
-    const canvas = canvasRef.current;
-
-    if (!username || (!canvas && !uploadedImage)) {
-      setError('Debes proporcionar un nombre de usuario y subir o tomar una foto.');
+    if (!username || !uploadedImage) {
+      setError('Debes proporcionar un nombre de usuario y una imagen.');
       setIsLoading(false);
       return;
     }
 
     const formData = new FormData();
     formData.append('username', username);
-
-    if (uploadedImage) {
-      formData.append('face_image', uploadedImage);
-    } else {
-      const faceImage = canvas.toDataURL('image/jpeg');
-      formData.append('face_image_base64', faceImage);
-    }
+    formData.append('face_image', uploadedImage);
 
     try {
-      const token = localStorage.getItem('access_token');
       const response = await axios.post('http://localhost:8000/api/face-login/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`,
         },
       });
 
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
+      localStorage.setItem('user_name', response.data.user_name); // Aquí guardamos el nombre
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Error en el reconocimiento facial.');
@@ -105,7 +112,6 @@ const Login = () => {
     }
   };
 
-  // Login con usuario y contraseña
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -114,9 +120,15 @@ const Login = () => {
         username,
         password,
       });
-      const { access, refresh } = response.data;
+      const { access, refresh, user_name } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
+      if (user_name) {
+        localStorage.setItem('user_name', user_name); // Guardamos el nombre de usuario
+      } else {
+        console.error('No se recibió el nombre de usuario');
+      }
+
       navigate('/');
     } catch (error) {
       setError('Credenciales inválidas.');
@@ -138,12 +150,12 @@ const Login = () => {
             />
           </div>
           <div>
-            <label htmlFor="upload">Subir una foto:</label>
+            <label htmlFor="upload">Subir una imagen:</label>
             <input
               type="file"
               id="upload"
               accept="image/*"
-              onChange={handleFileUpload}
+              onChange={(e) => handleFileUpload(e.target.files[0])}
             />
           </div>
           {isCameraActive ? (
@@ -187,10 +199,10 @@ const Login = () => {
       <button onClick={() => setIsFaceLogin(!isFaceLogin)}>
         {isFaceLogin ? 'Usar contraseña' : 'Usar reconocimiento facial'}
       </button>
-
-      {/* Botón para redirigir a la página de registro */}
       <div>
-        <p>¿No tienes una cuenta? <Link to="/register"><button>Registrarse</button></Link></p>
+        <p>
+          ¿No tienes una cuenta? <Link to="/register"><button>Registrarse</button></Link>
+        </p>
       </div>
     </div>
   );

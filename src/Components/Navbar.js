@@ -1,9 +1,8 @@
-// src/Components/Navbar.js
 import React from 'react';
 import { Link } from 'react-router-dom';
 import logo from './Images/SageML_logo.png'; // Importa el logo
 
-const Navbar = () => {
+const Navbar = ({ userName }) => {
   return (
     <nav style={styles.navbar}>
       {/* Logo con enlace al homepage */}
@@ -19,11 +18,28 @@ const Navbar = () => {
             Start
           </Link>
         </li>
-        <li>
-          <Link to="/login" style={styles.link}>
-            Iniciar sesión
-          </Link>
-        </li>
+
+        {/* Si el usuario está autenticado, muestra su nombre */}
+        {userName ? (
+          <>
+            <li>
+              <Link to="/profile" style={styles.link}>
+                {userName}
+              </Link>
+            </li>
+            <li>
+              <Link to="/login" style={styles.link}>
+                Cerrar sesión
+              </Link>
+            </li>
+          </>
+        ) : (
+          <li>
+            <Link to="/login" style={styles.link}>
+              Iniciar sesión
+            </Link>
+          </li>
+        )}
       </ul>
     </nav>
   );
